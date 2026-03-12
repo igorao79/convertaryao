@@ -96,7 +96,7 @@ export function FileDropzone({ files, onFilesChange }: FileDropzoneProps) {
     <div className="space-y-3">
       {/* File list */}
       {files.length > 0 && (
-        <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+        <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
           {files.map((file, i) => {
             const info = getFormatFromFilename(file.name);
             const CategoryIcon = info?.category === "image" ? Image : FileText;

@@ -43,11 +43,14 @@ export async function POST(request: NextRequest) {
 
     const originalName = file.name.replace(/\.[^.]+$/, "");
     const filename = `${originalName}.${targetFormat}`;
+    // Use RFC 5987 encoding for non-ASCII filenames
+    const asciiName = `converted.${targetFormat}`;
+    const encodedName = encodeURIComponent(filename);
 
     return new NextResponse(result.data, {
       headers: {
         "Content-Type": result.mimeType,
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodedName}`,
         "Content-Length": result.data.length.toString(),
       },
     });
@@ -57,8 +60,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const maxDuration = 60;
+
+export const dynamic = "force-dynamic";
