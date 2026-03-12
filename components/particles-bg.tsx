@@ -58,7 +58,7 @@ export function ParticlesBg() {
       label: FORMAT_LABELS[i % FORMAT_LABELS.length],
       opacity: Math.random() * 0.18 + 0.06,
       shade: Math.random(),
-      fontSize: Math.random() * 4 + 10,
+      fontSize: Math.random() * 5 + 13,
     }));
 
     const onMouse = (e: MouseEvent) => {
