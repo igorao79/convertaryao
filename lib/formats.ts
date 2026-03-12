@@ -69,6 +69,30 @@ export function getTargetFormats(sourceFormat: string): FormatInfo[] {
   return [];
 }
 
+export function getTargetFormatsForCategory(category: FormatCategory): FormatInfo[] {
+  if (category === "image") {
+    const seen = new Set<string>();
+    return Object.values(formats).filter((f) => {
+      if (f.category !== "image" || f.inputOnly) return false;
+      if (f.extension === "jpeg") return false;
+      if (seen.has(f.extension)) return false;
+      seen.add(f.extension);
+      return true;
+    });
+  }
+
+  if (category === "document") {
+    // For mixed documents, show union of all possible targets
+    const allTargets = new Set<string>();
+    for (const [ext, targets] of Object.entries(documentConversions)) {
+      targets.forEach((t) => allTargets.add(t));
+    }
+    return [...allTargets].map((ext) => formats[ext]).filter(Boolean);
+  }
+
+  return [];
+}
+
 export function isConversionAllowed(source: string, target: string): boolean {
   const sourceFormat = formats[source.toLowerCase()];
   const targetFormat = formats[target.toLowerCase()];

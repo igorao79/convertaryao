@@ -6,8 +6,9 @@ import { Progress } from "@/components/ui/progress";
 import { FileDropzone } from "./file-dropzone";
 import { FormatSelect } from "./format-select";
 import { ConversionOptions } from "./conversion-options";
-import { getFormatFromFilename, type FormatInfo } from "@/lib/formats";
-import { Download, Loader2, RotateCcw, FileArchive } from "lucide-react";
+import { useGlobalDrop } from "./global-drop-provider";
+import { getFormatFromFilename, type FormatInfo, type FormatCategory } from "@/lib/formats";
+import { Download, Loader2, RotateCcw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 type ConversionState = "idle" | "converting" | "done" | "error";
@@ -26,19 +27,33 @@ export function Converter() {
   const [results, setResults] = useState<ConvertedFile[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  // Determine common source format — if all files same category, use first file's format
-  const sourceFormat: FormatInfo | null = useMemo(() => {
-    if (files.length === 0) return null;
-    return getFormatFromFilename(files[0].name);
+  // Analyze all files to determine categories and formats
+  const fileAnalysis = useMemo(() => {
+    if (files.length === 0) return { sourceFormat: null, commonCategory: null, isMixed: false, allImages: false };
+
+    const infos = files.map((f) => getFormatFromFilename(f.name));
+    const categories = new Set(infos.map((i) => i?.category).filter(Boolean) as FormatCategory[]);
+    const isMixed = categories.size > 1;
+    const commonCategory = categories.size === 1 ? [...categories][0] : null;
+    const allImages = commonCategory === "image";
+
+    // If all same extension, use that format. Otherwise create a virtual "category" format
+    const extensions = new Set(infos.map((i) => i?.extension).filter(Boolean));
+    let sourceFormat: FormatInfo | null;
+
+    if (extensions.size === 1) {
+      sourceFormat = infos[0];
+    } else if (commonCategory) {
+      // Multiple formats but same category — use first file's format for target list
+      sourceFormat = infos[0];
+    } else {
+      sourceFormat = null;
+    }
+
+    return { sourceFormat, commonCategory, isMixed, allImages };
   }, [files]);
 
-  // Check if all files are images (for remove bg option)
-  const allImages = useMemo(() => {
-    return files.length > 0 && files.every((f) => {
-      const info = getFormatFromFilename(f.name);
-      return info?.category === "image";
-    });
-  }, [files]);
+  const { sourceFormat, commonCategory, isMixed, allImages } = fileAnalysis;
 
   const handleFilesChange = useCallback((newFiles: File[]) => {
     setFiles(newFiles);
@@ -49,6 +64,34 @@ export function Converter() {
     setResults([]);
     setErrorMessage("");
   }, []);
+
+  const MAX_FILES = 10;
+
+  // Global drop — add files from anywhere on the page
+  const handleGlobalDrop = useCallback((droppedFiles: File[]) => {
+    const existing = new Set(files.map((f) => `${f.name}_${f.size}`));
+    const unique = droppedFiles.filter((f) => !existing.has(`${f.name}_${f.size}`));
+    if (unique.length > 0) {
+      const remaining = MAX_FILES - files.length;
+      if (remaining <= 0) {
+        toast.error(`Maximum ${MAX_FILES} files allowed`);
+        return;
+      }
+      const toAdd = unique.slice(0, remaining);
+      if (toAdd.length < unique.length) {
+        toast.warning(`Only ${toAdd.length} of ${unique.length} files added (max ${MAX_FILES})`);
+      }
+      setFiles((prev) => [...prev, ...toAdd]);
+      setTargetFormat("");
+      setRemoveBackground(false);
+      setState("idle");
+      setProgress(0);
+      setResults([]);
+      setErrorMessage("");
+    }
+  }, [files]);
+
+  useGlobalDrop(handleGlobalDrop);
 
   const handleConvert = async () => {
     if (files.length === 0 || !targetFormat) return;
@@ -153,11 +196,19 @@ export function Converter() {
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 space-y-4">
         <FileDropzone files={files} onFilesChange={handleFilesChange} />
 
-        <FormatSelect
-          sourceFormat={sourceFormat}
-          targetFormat={targetFormat}
-          onTargetChange={setTargetFormat}
-        />
+        {isMixed ? (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+            <AlertTriangle className="size-4 text-amber-500 shrink-0" />
+            <span className="text-amber-500">Files must be the same type (all images or all documents)</span>
+          </div>
+        ) : (
+          <FormatSelect
+            sourceFormat={sourceFormat}
+            targetFormat={targetFormat}
+            onTargetChange={setTargetFormat}
+            multipleFormats={files.length > 1 && new Set(files.map((f) => getFormatFromFilename(f.name)?.extension)).size > 1}
+          />
+        )}
 
         <ConversionOptions
           targetFormat={targetFormat}
@@ -183,45 +234,19 @@ export function Converter() {
 
         <div className="flex flex-col gap-2">
           {state === "done" ? (
-            <>
-              {/* Individual downloads */}
-              {results.length > 1 && (
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {results.map((r, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleDownload(r)}
-                      className="w-full flex items-center gap-2 rounded-lg border border-border hover:bg-primary/5 hover:border-primary/30 p-2 text-sm text-left transition-colors cursor-pointer"
-                    >
-                      <Download className="size-3.5 text-primary shrink-0" />
-                      <span className="truncate">{truncName(r.filename)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button onClick={handleDownloadAll} className="flex-1 bg-primary hover:bg-primary/90" size="lg">
-                  {results.length > 1 ? (
-                    <>
-                      <FileArchive className="size-4 mr-1.5" />
-                      Download All (.zip)
-                    </>
-                  ) : (
-                    <>
-                      <Download className="size-4 mr-1.5" />
-                      <span className="truncate">{truncName(results[0]?.filename || "")}</span>
-                    </>
-                  )}
-                </Button>
-                <Button onClick={handleReset} variant="outline" size="lg">
-                  <RotateCcw className="size-4" />
-                </Button>
-              </div>
-            </>
+            <div className="flex gap-2">
+              <Button onClick={handleDownloadAll} className="flex-1 bg-primary hover:bg-primary/90" size="lg">
+                <Download className="size-4 mr-1.5" />
+                {results.length > 1 ? "Download All (.zip)" : "Download"}
+              </Button>
+              <Button onClick={handleReset} variant="outline" size="lg">
+                <RotateCcw className="size-4" />
+              </Button>
+            </div>
           ) : (
             <Button
               onClick={handleConvert}
-              disabled={files.length === 0 || !targetFormat || state === "converting"}
+              disabled={files.length === 0 || !targetFormat || state === "converting" || isMixed}
               className="w-full bg-primary hover:bg-primary/90"
               size="lg"
             >

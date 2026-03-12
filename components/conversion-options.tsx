@@ -17,9 +17,8 @@ export function ConversionOptions({
   removeBackground,
   onRemoveBackgroundChange,
 }: ConversionOptionsProps) {
-  // Show for any image->image conversion where target supports transparency
-  const transparentFormats = ["png", "webp", "avif", "tiff", "gif"];
-  const showBgRemoval = sourceCategory === "image" && transparentFormats.includes(targetFormat);
+  // Show remove background for any image→image conversion
+  const showBgRemoval = sourceCategory === "image" && !!targetFormat;
 
   if (!showBgRemoval) return null;
 

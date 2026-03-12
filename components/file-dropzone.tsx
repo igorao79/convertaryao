@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useState, useRef } from "react";
-import { Upload, X, Image, FileText, Plus } from "lucide-react";
+import { Upload, X, Image, FileText, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { getFormatFromFilename, getCategoryLabel } from "@/lib/formats";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,8 @@ export function FileDropzone({ files, onFilesChange }: FileDropzoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const MAX_FILES = 10;
+
   const addFiles = useCallback(
     (newFiles: FileList | File[]) => {
       const arr = Array.from(newFiles);
@@ -36,7 +39,16 @@ export function FileDropzone({ files, onFilesChange }: FileDropzoneProps) {
       const existing = new Set(files.map((f) => `${f.name}_${f.size}`));
       const unique = arr.filter((f) => !existing.has(`${f.name}_${f.size}`));
       if (unique.length > 0) {
-        onFilesChange([...files, ...unique]);
+        const remaining = MAX_FILES - files.length;
+        if (remaining <= 0) {
+          toast.error(`Maximum ${MAX_FILES} files allowed`);
+          return;
+        }
+        const toAdd = unique.slice(0, remaining);
+        if (toAdd.length < unique.length) {
+          toast.warning(`Only ${toAdd.length} of ${unique.length} files added (max ${MAX_FILES})`);
+        }
+        onFilesChange([...files, ...toAdd]);
       }
     },
     [files, onFilesChange]
@@ -52,6 +64,7 @@ export function FileDropzone({ files, onFilesChange }: FileDropzoneProps) {
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       setIsDragOver(false);
       if (e.dataTransfer.files.length > 0) {
         addFiles(e.dataTransfer.files);
@@ -83,7 +96,7 @@ export function FileDropzone({ files, onFilesChange }: FileDropzoneProps) {
     <div className="space-y-3">
       {/* File list */}
       {files.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
           {files.map((file, i) => {
             const info = getFormatFromFilename(file.name);
             const CategoryIcon = info?.category === "image" ? Image : FileText;
@@ -122,13 +135,15 @@ export function FileDropzone({ files, onFilesChange }: FileDropzoneProps) {
             );
           })}
           {/* Add more button */}
-          <button
-            onClick={handleClick}
-            className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 p-2 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-          >
-            <Plus className="size-3.5" />
-            Add more files
-          </button>
+          {files.length < MAX_FILES && (
+            <button
+              onClick={handleClick}
+              className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 p-2 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              <Plus className="size-3.5" />
+              Add more files ({files.length}/{MAX_FILES})
+            </button>
+          )}
         </div>
       )}
 
@@ -158,24 +173,6 @@ export function FileDropzone({ files, onFilesChange }: FileDropzoneProps) {
           <p className="text-xs text-muted-foreground">
             PNG, JPG, WebP, AVIF, ICO, GIF, TIFF, BMP, SVG, PDF, DOCX, TXT
           </p>
-        </div>
-      )}
-
-      {/* Hidden drop area when files exist */}
-      {files.length > 0 && (
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          className={cn(
-            "fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm transition-opacity",
-            isDragOver ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
-        >
-          <div className="rounded-2xl border-2 border-dashed border-primary bg-primary/5 p-12 text-center">
-            <Upload className="size-10 text-primary mx-auto mb-3" />
-            <p className="text-lg font-medium">Drop files to add</p>
-          </div>
         </div>
       )}
 

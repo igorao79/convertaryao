@@ -9,22 +9,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getTargetFormats, type FormatInfo } from "@/lib/formats";
+import { getTargetFormats, getTargetFormatsForCategory, type FormatInfo } from "@/lib/formats";
 import { ArrowRight } from "lucide-react";
 
 interface FormatSelectProps {
   sourceFormat: FormatInfo | null;
   targetFormat: string;
   onTargetChange: (format: string) => void;
+  multipleFormats?: boolean;
 }
 
 export function FormatSelect({
   sourceFormat,
   targetFormat,
   onTargetChange,
+  multipleFormats,
 }: FormatSelectProps) {
   const targetFormats = sourceFormat
-    ? getTargetFormats(sourceFormat.extension)
+    ? multipleFormats
+      ? getTargetFormatsForCategory(sourceFormat.category)
+      : getTargetFormats(sourceFormat.extension)
     : [];
 
   if (!sourceFormat) {
@@ -44,10 +48,16 @@ export function FormatSelect({
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-9 rounded-lg border bg-muted/30 flex items-center px-3">
-        <span className="text-sm font-medium">{sourceFormat.label}</span>
-        <span className="text-xs text-muted-foreground ml-1.5">
-          {sourceFormat.category === "image" ? "image" : "doc"}
+        <span className="text-sm font-medium">
+          {multipleFormats
+            ? sourceFormat.category === "image" ? "Images" : "Documents"
+            : sourceFormat.label}
         </span>
+        {!multipleFormats && (
+          <span className="text-xs text-muted-foreground ml-1.5">
+            {sourceFormat.category === "image" ? "image" : "doc"}
+          </span>
+        )}
       </div>
 
       <ArrowRight className="size-4 text-muted-foreground shrink-0" />
