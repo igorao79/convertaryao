@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
     const asciiName = `converted.${targetFormat}`;
     const encodedName = encodeURIComponent(filename);
 
-    return new NextResponse(result.data, {
+    return new NextResponse(new Uint8Array(result.data), {
       headers: {
         "Content-Type": result.mimeType,
         "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodedName}`,
-        "Content-Length": result.data.length.toString(),
+        "Content-Length": result.data.byteLength.toString(),
       },
     });
   } catch (error) {
