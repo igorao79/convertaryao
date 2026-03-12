@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const asciiName = `converted.${targetFormat}`;
     const encodedName = encodeURIComponent(filename);
 
-    return new NextResponse(new Uint8Array(result.data), {
+    return new Response(result.data as unknown as BodyInit, {
       headers: {
         "Content-Type": result.mimeType,
         "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodedName}`,

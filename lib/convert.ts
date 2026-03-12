@@ -163,7 +163,8 @@ async function convertDocument(
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
   try {
-    const pdfParse = (await import("pdf-parse")).default;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
     const result = await pdfParse(buffer);
     return result.text;
   } catch {
